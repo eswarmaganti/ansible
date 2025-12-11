@@ -1,0 +1,16 @@
+# This rule book listens the nginx server and restart the server if it fails
+
+---
+- name: Check the Nginx Server
+  hosts: all
+  sources:
+    - ansible.eda.url_check:
+        urls:
+          - http://localhost:8000
+        delay: 30
+  rules:
+    - name: Restart nginx server
+      condition: event.url_check.status == "down"
+      action:
+        run_playbook:
+          name: restart_nginx.yml

@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+  ubuntulab0101:
+    image: ubuntu-ssh:latest
+    ports:
+      - "2221:22"
+  ubuntulab0102:
+    image: ubuntu-ssh:latest
+    ports:
+      - "2222:22"
+  ubuntulab0103:
+    image: ubuntu-ssh:latest
+    ports:
+      - "2223:22"

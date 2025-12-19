@@ -1,0 +1,9 @@
+---
+- name: Playbook to Configure and Deploy Flask MySQL application
+  hosts: all
+  gather_facts: false
+  become: true
+  vars_files:
+    - "../inventory/group_vars/vault_file.yml"
+  roles:
+    - web_app

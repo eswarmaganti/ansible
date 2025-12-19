@@ -1,0 +1,6 @@
+---
+- name: Install the system and application dependencies
+  import_tasks: configure.yml
+
+- name: Deploy the application
+  import_tasks: deploy.yml

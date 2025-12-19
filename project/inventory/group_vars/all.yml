@@ -1,5 +1,16 @@
 ---
 ansible_user: ansible
-ansible_password: "{{ lookup('env', 'ansible_password') }}"
+#ansible_password: "{{ lookup('env', 'ansible_password') }}"
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
-ansible_python_interpreter: "/usr/bin/python3.12"
+ansible_python_interpreter: "/usr/bin/python3.10"
+
+# MySQL vars
+mysql_user: shop_admin
+mysql_db: shop
+mysql_host: localhost
+
+# app vars
+flask_env: production
+app_name: "Gunicorn Flask App"
+app_user: root
+app_working_dir: "/opt/app"

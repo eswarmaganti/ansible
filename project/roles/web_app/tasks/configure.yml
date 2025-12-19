@@ -1,0 +1,55 @@
+
+- name: Install the System Package Dependencies
+  ansible.builtin.apt:
+    name: "{{ system_packages }}"
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Install MySQL Server packages
+  ansible.builtin.apt:
+    name: "{{ db_packages }}"
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Enable and start the mysql service
+  ansible.builtin.service:
+    name: mysql
+    enabled: yes
+    state: started
+  become: true
+
+- name: Create MySQL Application Database
+  community.mysql.mysql_db:
+    name: "{{ mysql.db }}"
+    state: present
+    login_user: "root"
+    login_unix_socket:  "/var/run/mysqld/mysqld.sock"
+  become: true
+
+- name: Create Database User "shop_admin"
+  community.mysql.mysql_user:
+    login_host: "localhost"
+    login_user: "root"
+    login_unix_socket:  "/var/run/mysqld/mysqld.sock"
+    name: "{{ mysql.user }}"
+    state: present
+    priv: "shop.*:ALL"
+    password: "{{ mysql.password }}"
+  become: true
+
+- name: Crate products table in shop DB
+  community.mysql.mysql_query:
+    login_user: "{{ mysql.user }}"
+    login_password: "{{ mysql.password }}"
+    login_unix_socket:  "/var/run/mysqld/mysqld.sock"
+    login_host: localhost
+    login_db: "{{ mysql.db }}"
+    query: |
+      CREATE TABLE IF NOT EXISTS products ( 
+        id INT PRIMARY KEY AUTO_INCREMENT, 
+        name VARCHAR(100) NOT NULL, 
+        description VARCHAR(256), 
+        price INT NOT NULL );
+  become: true

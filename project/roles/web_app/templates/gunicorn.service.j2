@@ -1,0 +1,14 @@
+[Unit]
+Description={{ app_name }}
+After=network.target
+
+[Service]
+User={{app_user}}
+WorkingDirectory={{ app_working_dir }}
+EnvironmentFile={{ app_working_dir }}/app.env
+ExecStart=/usr/local/bin/gunicorn -b 0.0.0.0:5000 main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

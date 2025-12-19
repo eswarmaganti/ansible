@@ -60,7 +60,7 @@
     $pwd
     /Users/eswarmaganti/Developer/Projects/DevOps/ansible
     
-    $ansible -m ping -i project/inventory/inventory.yml ubuntulab
+    $ansible -m ping -i project/inventory/hosts.yml ubuntulab
       ubuntulab0103 | SUCCESS => {
     "changed": false,
     "ping": "pong"
@@ -74,3 +74,59 @@
     "ping": "pong"
     }
     ```
+  
+# Using Vagrant VM's
+
+- We can also use vagrant to create VM's and test our playbooks
+- The below is the sameple vagrantfile
+
+```
+# This vagrant file configures two vagrant vm's
+# with hostname's vagrantubuntulab0101 & vagrantubuntulab0102
+# It will creates a user called ansible and grants passwordless sudo privileges
+# assigns private IP's to the VM's so that the VM's can be accessible from your home network
+
+Vagrant.configure("2") do |config|
+  # Base Image
+  config.vm.box = "bento/ubuntu-22.04"
+
+  # provision ansible user
+
+  config.vm.provision "shell", inline: <<-SHELL
+    # create ansible user if not exists
+    id ansible &>/dev/null || useradd -m -s /bin/bash ansible
+
+    # change the password
+    echo "ansible:#{ENV['ansible_password']}" | chpasswd
+
+    # add the user to sudo group
+    usermod -aG sudo ansible
+
+    # enable passwordless sudo
+    echo "ansible ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansible
+    chmod 400 /etc/sudoers.d/ansible
+
+  SHELL
+
+  # VM1
+  config.vm.define "vagrantubuntulab0101" do |vm1|
+    vm1.vm.hostname = "vagrantubuntulab0101"
+    vm1.vm.network "private_network", ip: "192.168.58.101"
+  end
+
+  # VM2
+  config.vm.define "vagrantubuntulab0102" do |vm2|
+    vm2.vm.hostname = "vagrantubuntulab0102"
+    vm2.vm.network "private_network", ip: "192.168.58.102"
+  end
+
+end
+
+```
+- Run the below command in the same directory as `Vagrantfile` to create the VM's
+  - `vagrant up`
+- Run the below command to ssh into the vagrant VM's
+  - `vagrant ssh <hostname>`
+  - `vagrant ssh vagrantubuntulab0102`
+- Run the below command to destroy the created VM's
+  - `vagrant destroy`

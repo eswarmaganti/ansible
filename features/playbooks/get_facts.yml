@@ -1,0 +1,8 @@
+---
+- name: Playbook to get the facts from remote system
+  hosts: vagrantubuntulab0101
+  gather_facts: yes
+  tasks:
+    - name: Print all available facts
+      ansible.builtin.debug:
+        var: ansible_facts

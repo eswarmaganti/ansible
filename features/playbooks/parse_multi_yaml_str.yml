@@ -1,0 +1,12 @@
+---
+- name: Playbook to test the parsing of multi-document yaml strings
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: read the yaml file
+      ansible.builtin.set_fact:
+        yaml_doc: "{{ lookup('file', '../files/multi_doc_yaml.yml') }}"
+    - name: Print the transformed variable
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      loop: "{{ yaml_doc | from_yaml_all | list }}"

@@ -1,0 +1,39 @@
+---
+- name: Extract data using json_query module
+  hosts: localhost
+  gather_facts: false
+  vars:
+    qry_port: "domain.server[?cluster=='cluster1'].port"
+  tasks:
+    - name: load the json data
+      ansible.builtin.set_fact:
+        domain_data: "{{ lookup('file', '../files/domain_data.json') | from_json }}"
+
+    - name: Log the json data
+      ansible.builtin.debug:
+        msg: "{{ domain_data }}"
+
+    - name: Extract and display all the cluster names
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query('domain.cluster[*].name') | list }}"
+
+    - name: Extract and display all the server names
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query('domain.server[*].name') | list }}"
+
+    - name: Extract the ports from cluster1
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query(qry_port) | list }}"
+
+
+    - name: Display all the ports with comma separated values
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query(qry_port)  | join(',') }}"
+
+    - name: Display all the server ports and names from cluster1
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query('domain.server[?cluster==`cluster1`].{name: name, port: port}') }}"
+
+    - name: Display ports from all clusters with name starting with 'server1'
+      ansible.builtin.debug:
+        msg: "{{ domain_data | community.general.json_query('domain.server[?starts_with(name, `server1`)].port') }}"

@@ -1,0 +1,11 @@
+- name: Ansible List permutations
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Generating the largest permutations
+      ansible.builtin.debug:
+        msg: "{{ [1,2,3,4,5] | ansible.builtin.permutations | to_json }}"
+
+    - name: Generating permutation of sets of three
+      ansible.builtin.debug:
+        msg: "{{ [1,2,3,4,5] | ansible.builtin.permutations(3) | to_json }}"

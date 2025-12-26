@@ -1,0 +1,20 @@
+---
+- name: Regex Practice
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: convert "http://localhost:80" to "http, localhost, 80"
+      ansible.builtin.debug:
+        msg: "{{ 'http://localhost:80' | regex_replace( '^(?P<protocol>\\w+)://(?P<host>\\w+):(?P<port>\\d+)$', '\\g<protocol>, \\g<host>, \\g<port>' ) }}"
+
+    - name: comment lines ends with "ar"
+      ansible.builtin.debug:
+        msg: "{{ 'CAR\ntar\nfoo\nbar\n' | regex_replace('(?im)^(.*ar)$', '#\\1') }}"
+
+    - name: Escaping the regex default python version
+      ansible.builtin.debug:
+        msg: "{{ '^f.*o(.*)$' | regex_escape() }}"
+
+    - name: Escaping the regex default posix version
+      ansible.builtin.debug:
+        msg: "{{ '^f.*o(.*)$' | regex_escape(re_type='posix_basic') }}"

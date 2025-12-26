@@ -1,0 +1,20 @@
+---
+cities:
+  - name: Vishakapatnam
+    state: Andhra Pradesh
+  - name: Bangalore
+    state: Karnataka
+  - name: Hyderabad
+    state: Telangana
+
+---
+places:
+  - name: Tank Bund
+    state: telangana
+    city: Hyderabad
+  - name: Mysore Palace
+    state: Karnataka
+    city: Mysore
+  - name: Tirumala Temple
+    state: Andhra Pradesh
+    city: Tirupati

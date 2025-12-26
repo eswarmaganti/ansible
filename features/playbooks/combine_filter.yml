@@ -1,0 +1,25 @@
+---
+- name: ansible combine filter
+  hosts: localhost
+  gather_facts: false
+  vars:
+    a:
+      1: 10
+      2: 20
+      3: 30
+    b:
+      3: 31
+      4: 41
+    c:
+      4: 42
+      5: 52
+    d:
+      5: 53
+  tasks:
+    - name: combine multiple elements
+      ansible.builtin.debug:
+        msg: "{{ a | combine(b, c, d) }}"
+    - name: combine a list of items
+      ansible.builtin.debug:
+        msg: "{{ [a, b, c, d] | combine }}"
+

@@ -207,17 +207,275 @@ By combining monitoring with event-driven automation, the system becomes proacti
 
 ### Event Source Configuration
 
+Ansible provides a various kinds of  source plugins to  listen for events.
+[Event Source Plugins - Ansible Docs](https://docs.ansible.com/projects/rulebook/en/v1.1.1/sources.html) 
 
+We will use ansible EDA webhook listener to listen for events sources. 
+
+```yaml
+sources:
+  - ansible.eda.webhook:
+      host: 0.0.0.0
+      port: 5050
+```
+- We will define the Event Sources under `sources` block. In the above example we are using `ansible.eda.webhook` to listen for incoming events on host `localhost` and port `5050`.
+- This webhook event source allows external systems like monitoring tools, custom scripts etc to trigger rulebook actions via HTTP post
+
+Example: Sending a event to  Ansible sources webhook 
+
+```bash
+curl -X POST http://localhost:5050 \
+-H "Content-Type application/json" \
+-d '{"service":"nginx", "message": "NGINX is down", "severity":"CRITICAL", "host":"ansiblevagrantlab01"}'
+```
 
 ### Writing the Ansible Rulebook
+Below is the sample Ansible Rulebook which listens for source events on a webhook `localhost:5050`
+
+The rulebook contains two rules:
+- The first one will check for NGINX Critical alerts and remediate them using a playbook named `restart_nginx.yaml`
+- The second one will check for MySQL Critical alerts and remediate them using a playbook named `restart_mysql.yaml`
 
 
+```yaml
+---
+- name: Ansible Rulebook Listener
+  hosts: all
+  sources: 
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5050
+  rules:
+    - name: Remediate when NGINX is Critical
+      condition: event.payload.service == "nginx" and event.payload.severity == 'CRITICAL'
+      action:
+        run_playbook:
+          name: ./playbooks/restart_nginx.yaml
+          extra_vars:
+            host: "{{ event.payload.host }}"
+    
+    - name: Remediate when MySQL is Critical
+      condition: event.payload.service == "mysql" and event.payload.severity == "CRITICAL"
+      action:
+        run_playbook: 
+          name: ./playbooks/restart_mysql.yaml
+          extra_vars:
+            host: "{{ event.payload.host }}"
+```
 ### Remediation Playbook
 
+We have two remediation playbooks used to remediate NGINX and MySQL alerts, the logic will looks similar for both as we are just restarting the service
+
+Playbook : `restart_nginx.yaml`
+```yaml
+---
+- name: Playbook to restart nginx service
+  hosts: "{{ host }}"
+  gather_facts: false
+  vars:
+    service: "nginx"
+  tasks:
+    - name: Start of Block
+      block:
+        - name: Check the status of NGINX service
+          ansible.builtin.service:
+            name: "{{ service }}"
+          register: output
+
+        - name: Start NGINX service
+          ansible.builtin.service:
+            name: "{{ service }}"
+            state: started
+          when: output.status.ActiveState == "inactive"
+      become: true
+ 
+      rescue:
+        - name: Handling Errors
+          ansible.builtin.debug:
+            msg: "An Error occurred while remediating the alert"
+
+
+```
+
+Playbook : `restart_mysql.yaml`
+```yaml
+---
+- name: Playbook to restart mysql service
+  hosts: "{{ host }}"
+  gather_facts: false
+  vars:
+    service: "mysql"
+  tasks:
+    - name: Start of Block
+      block:
+        - name: Check the status of MySQL service
+          ansible.builtin.service:
+            name: "{{ service }}"
+          register: output
+
+        - name: Start MySQL service
+          ansible.builtin.service:
+            name: "{{ service }}"
+            state: started
+          when: output.status.ActiveState == 'inactive'
+          become: true
+
+      rescue:
+        - name: Handling Errors
+          ansible.builtin.debug:
+            msg: "An Error occurred while remediating the alert"
+
+```
 
 ## E2E Demo Flow
 
-## Benefits & Limitations
+You can find all the source code used in this demo in the below git repository
+[Self-Healing Git Repo](https://github.com/eswarmaganti/self-healing.git)
+
+### Environment setup
+In my previous blog post I have explained about how to setup a lab environment using vagrant. Follow the blog to setup the environment
+
+Run the Playbook `configure_vms.yaml` to install NGINX, MySQL and configure the VMs.
+
+```bash
+ansible-playbook playbooks/configure_vms.yaml -i inventory/inventory.yaml
+```
+
+In this lab environment, we do not have a monitoring system generating alerts automatically. To demonstrate the complete workflow, we will intentionally stop the service and simulate an alert by sending a mock event to the Ansible webhook listener. This allows us to observe how Ansible detects the event and triggers remediation.
+
+
+### Step 1: Run the Ansible Rulebook
+
+
+Add the Ansible PrivateKey File path to Environment
+
+```bash
+$ export ANSIBLE_PRIVATE_KEY_FILE=$(pwd)/keys/vagrantkey
+
+$ echo $ANSIBLE_PRIVATE_KEY_FILE
+/Users/eswarmaganti/Developer/Projects/self-healing/keys/vagrantkey
+```
+
+Run the Ansible Rulebook
+
+```bash
+ansible-rulebook --rulebook rulebooks/rulebook.yaml -i inventory/inventory.yaml -v
+2026-02-15 11:41:19,672 - ansible_rulebook.app - INFO - Starting sources
+2026-02-15 11:41:19,672 - ansible_rulebook.app - INFO - Starting rules
+2026-02-15 11:41:19,673 - drools.ruleset - INFO - Using jar: /opt/anaconda3/lib/python3.12/site-packages/drools/jars/drools-ansible-rulebook-integration-runtime-1.0.11-SNAPSHOT.jar
+2026-02-15 11:41:20 061 [main] INFO org.drools.ansible.rulebook.integration.api.rulesengine.MemoryMonitorUtil - Memory occupation threshold set to 90%
+2026-02-15 11:41:20 062 [main] INFO org.drools.ansible.rulebook.integration.api.rulesengine.MemoryMonitorUtil - Memory check event count threshold set to 64
+2026-02-15 11:41:20 062 [main] INFO org.drools.ansible.rulebook.integration.api.rulesengine.MemoryMonitorUtil - Exit above memory occupation threshold set to false
+2026-02-15 11:41:20 066 [main] INFO org.drools.ansible.rulebook.integration.api.rulesengine.AbstractRulesEvaluator - Start automatic pseudo clock with a tick every 100 milliseconds
+2026-02-15 11:41:20,087 - ansible_rulebook.engine - INFO - load source ansible.eda.webhook
+2026-02-15 11:41:20,455 - ansible_rulebook.engine - INFO - loading source filter eda.builtin.insert_meta_info
+2026-02-15 11:41:20,728 - ansible_rulebook.engine - INFO - Waiting for all ruleset tasks to end
+2026-02-15 11:41:20,729 - ansible_rulebook.rule_set_runner - INFO - Waiting for actions on events from Ansible Rulebook Listener
+2026-02-15 11:41:20,729 - ansible_rulebook.rule_set_runner - INFO - Waiting for events, ruleset: Ansible Rulebook Listener
+2026-02-15 11:41:20 730 [drools-async-evaluator-thread] INFO org.drools.ansible.rulebook.integration.api.io.RuleExecutorChannel - Async channel connected
+```
+From the logs we can see our rulebook is running and the source webhook waiting for incoming events
+
+### Step 2: Stop the nginx service
+Login to one of the `ansiblevagrantlab01` and stop the nginx service
+
+```bash
+$ ssh ansible@ansiblevagrantlab01 -i ./vagrantkey
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-160-generic aarch64)
+
+$ systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2026-02-15 05:54:05 UTC; 13min ago
+       Docs: man:nginx(8)
+    Process: 6065 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCE>
+    Process: 6066 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 6067 (nginx)
+      Tasks: 3 (limit: 4375)
+     Memory: 3.2M
+        CPU: 77ms
+     CGroup: /system.slice/nginx.service
+             ├─6067 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             ├─6068 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+             └─6069 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+
+$ sudo systemctl stop nginx
+```
+### Step 3: Send alert info to WebHook endpoint 
+Send a POST request with alert details to WebHook endpoint
+
+```bash
+curl -X POST http://localhost:5050 \
+-H "Content-Type application/json" \
+-d '{"service":"nginx", "message": "NGINX is down", "severity":"CRITICAL", "host":"ansiblevagrantlab01"}'
+```
+
+### Step 4: Ansible Rulebook received the Event
+
+Now our rulebook received the new event with alert details and it will remediate the alert by executing the respective rule and the action defined under the rule to remediate the alert.
+
+```bash
+2026-02-15 11:41:26,375 - aiohttp.access - INFO - 127.0.0.1 [15/Feb/2026:11:41:26 +0530] "POST / HTTP/1.1" 200 151 "-" "curl/8.7.1"
+
+PLAY [Playbook to restart nginx service] ***************************************
+
+TASK [Check the status of NGINX service] ***************************************
+ok: [ansiblevagrantlab01]
+
+TASK [Start NGINX service] *****************************************************
+changed: [ansiblevagrantlab01]
+
+PLAY RECAP *********************************************************************
+ansiblevagrantlab01        : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+```
+
+### Step 5: Validate the NGINX status in the VM
+Login to the target VM and check the NGINX service status
+
+```bash
+$ systemctl status nginx
+● nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sun 2026-02-15 06:11:29 UTC; 16s ago
+       Docs: man:nginx(8)
+    Process: 6755 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCE>
+    Process: 6756 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+   Main PID: 6757 (nginx)
+      Tasks: 3 (limit: 4375)
+     Memory: 3.2M
+        CPU: 56ms
+     CGroup: /system.slice/nginx.service
+             ├─6757 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             ├─6758 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+             └─6759 "nginx: worker process" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ">
+```
+
+We can also mock the `mysql` alert in the same way, our rulebook can able to remediate the alert automatically.
+
+## Deployment Options
+An Ansible Rulebook must run continuously to listen for events and trigger remediation actions. Unlike traditional playbooks, rulebooks act as long-running process that waits for incoming events for configured sources such as webhooks.
+
+There are two common approaches to deploy and operate a rulebook
+
+### Option 1: Running as a Daemon Process
+The simplest approach is to run the rulebook as a background process on a server. In this setup, the rulebook continuously listens for events and executes remediation actions when conditions are met.
+
+This method is suitable for lab environments and small-scale deployments. The process can be managed using system services such as `systemd` to ensure it runs continuously and restarts automatically if needed.
+
+### Option 2: Deploying as a Container on Kubernetes
+For production environments, the rulebook can be containerized and deployed on a Kubernetes cluster. Kubernetes manage the lifecycle of the rulebook, ensuring High Availability and automatic restarts, and easier scalability.
+
+This approach is useful when managing larger infrastructure or when integrating event-driven automation into cloud-native environments.
 
 
 ## Conclusion
+Traditional automation requires humans to detect failures and trigger remediation. With Ansible Event-Driven Automation, systems can react instantly to events and recover automatically.
+
+In this lab, we saw how service failures in NGINX and MySQL can be detected and remediated without manual intervention. Instead of waiting for alerts and human response, the system continuously listens, evaluates, and heals itself.
+
+This is a fundamental shift from reactive operations to proactive, event-driven automation.
+
+As infrastructure grows more complex, building self-healing capabilities becomes essential for improving reliability and reducing operational overhead. Ansible EDA provides a powerful and flexible foundation to implement these workflows using familiar Ansible concepts.
+
+This is just the beginning — event-driven automation opens the door to building truly autonomous and resilient systems.
